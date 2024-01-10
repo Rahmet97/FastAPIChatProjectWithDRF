@@ -1,4 +1,8 @@
-from datetime import datetime
+import os
+import secrets
+from datetime import datetime, timedelta
+
+import jwt
 
 from .schemas import UserInfo, User, UserInDB, UserLogin
 from database import get_async_session
@@ -60,3 +64,27 @@ async def user_info(token: dict = Depends(verify_token), session: AsyncSession =
         return result
     except NoResultFound:
         raise HTTPException(status_code=404, detail='User not found!')
+
+
+@register_router.post('/refresh-token')
+async def refresh_auth_token(
+        refresh_token: str
+):
+    try:
+        secret_key = os.environ.get('SECRET')
+        payload = jwt.decode(refresh_token, secret_key, algorithms=['HS256'])
+        jti_access = str(secrets.token_urlsafe(32))
+        data_access_token = {
+            'token_type': 'access',
+            'exp': datetime.utcnow() + timedelta(minutes=30),
+            'user_id': payload.get('user_id'),
+            'jti': jti_access
+        }
+        access_token = jwt.encode(data_access_token, secret_key, 'HS256')
+        return {
+            'access_token': access_token
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
