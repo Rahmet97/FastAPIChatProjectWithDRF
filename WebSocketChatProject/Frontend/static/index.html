@@ -1,57 +1,3 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Chat</title>
-</head>
-<body>
-    <input type="text" name="message" id="message"/>
-    <input type="file" id="file"/>
-    <button id="send">OK</button>
-    <div id="chat"></div>
-    <script>
-        const socket = new WebSocket('ws://localhost:8000/ws')
-        const chatDiv = document.getElementById('chat')
-        const messageInput = document.getElementById('message')
-        const fileInput = document.getElementById('file')
-
-        socket.onmessage = (event) => {
-            const message = event.data
-            if (!message.toString().startsWith("data:image/png;base64,"))
-                chatDiv.innerHTML += `<p>${message}</p>`
-        }
-
-        send.addEventListener('click', () => {
-            const message = messageInput.value
-            const selectedFile = fileInput.files[0]
-            if (selectedFile) {
-                const reader = new FileReader()
-                reader.onload = (event) => {
-                    const fileData = event.target.result
-                    if (fileData) {
-                        imgData = `<img src=${fileData} style="max-width: 300px;width: 100px;"/>`
-                        chatDiv.innerHTML += imgData
-                    }
-                    socket.send(fileData)
-                }
-                reader.readAsDataURL(selectedFile)
-                fileInput.value = ''
-            }
-            if (message) {
-                socket.send(message)
-                messageInput.value = ''
-            }
-            if (selectedFile) {
-                socket.send(selectedFile)
-            }
-        })
-    </script>
-</body>
-</html> -->
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -66,7 +12,7 @@
     </div>
 
     <script>
-        const socket = new WebSocket("ws://localhost:8001/ws");
+        const socket = new WebSocket("ws://localhost:8000/ws");
         const chatMessages = document.getElementById("chat_messages");
         const messageInput = document.getElementById("messageInput");
         const fileInput = document.getElementById("fileInput");
@@ -74,7 +20,13 @@
 
         socket.onmessage = (event) => {
             const message = event.data;
-            if (message.toString().startsWith("data:image/png;base64,")) {
+            if (message.toString().startsWith("data:image/png;base64,") ||
+                message.toString().startsWith("data:image/jpeg;base64,") ||
+                message.toString().startsWith("data:image/jpg;base64,") ||
+                message.toString().startsWith("data:image/bmp;base64,") ||
+                message.toString().startsWith("data:image/gif;base64,") ||
+                message.toString().startsWith("data:image/tiff;base64,")
+            ) {
                 imgData = `<img src=${message} style="max-width: 300px;width: 100px;"/>`
                 chatMessages.innerHTML += `<p>${imgData}</p>`;
             }
@@ -91,12 +43,42 @@
                 reader.onload = (event) => {
                     const fileData = event.target.result;
                     socket.send(fileData);
+                    fetch('http://localhost:8000/send-message', {
+                        method: 'POST',
+                        headers: {
+                            Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzA0ODgzNjg1LCJ1c2VyX2lkIjoyLCJqdGkiOiJUT0ROV1FSTHBrRjI1RUg4Y0xoM0dlakh4dWpmdVYwV19OQ212VkNIbjFjIn0.TWYClTLjjegYU103tAK8s8WiuuxDB5z_Qfg6Yha5x_8',
+                            accept: 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: fileData,
+                            receiver: 1
+                        })
+                    })
+                        .then(response=>response.json())
+                        .then(res=>console.log(res))
                 };
                 reader.readAsDataURL(selectedFile);
                 fileInput.value = ''
             }
-            socket.send(message);
-            messageInput.value = "";
+            if (message) {
+                socket.send(message);
+                fetch('http://localhost:8000/send-message', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzA0ODgzNjg1LCJ1c2VyX2lkIjoyLCJqdGkiOiJUT0ROV1FSTHBrRjI1RUg4Y0xoM0dlakh4dWpmdVYwV19OQ212VkNIbjFjIn0.TWYClTLjjegYU103tAK8s8WiuuxDB5z_Qfg6Yha5x_8',
+                        accept: 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        receiver: 1
+                    })
+                })
+                    .then(response=>response.json())
+                    .then(res=>console.log(res))
+                messageInput.value = "";
+            }
         });
     </script>
 </body>

@@ -1,30 +1,19 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
+from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
+from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "postgresql://chat_admin:chat_admin@db:5432/chat_db"
+from config import DB_HOST, DB_USER, DB_PORT, DB_NAME, DB_PASSWORD
 
+DATABASE_URL = f'postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
+# shablon driver://user:password@host:port/db_name
 Base = declarative_base()
 
-
-class Message(Base):
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    sender_id = Column(Integer, ForeignKey("accounts_userdata.id", nullable=False))
-    receiver_id = Column(Integer, ForeignKey("accounts_userdata.id", nullable=False))
-    message = Column(String)
+engine = create_async_engine(DATABASE_URL)
+async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflash=False, bind=engine)
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-Base.metadata.create_all(bind=engine)
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_maker() as session:
+        yield session
