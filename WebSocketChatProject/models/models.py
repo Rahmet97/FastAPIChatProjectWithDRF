@@ -21,3 +21,12 @@ class Message(Base):
     sender_id = Column(Integer, ForeignKey("userdata.id"))
     receiver_id = Column(Integer, ForeignKey("userdata.id"))
     message = Column(String)
+
+
+class Room(Base):
+    __tablename__ = 'room'
+    metadata = metadata
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    key = Column(String)
+    sender_id = Column(ForeignKey('userdata.id'))
+    receiver_id = Column(ForeignKey('userdata.id'))

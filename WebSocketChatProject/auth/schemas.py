@@ -38,7 +38,8 @@ class UserLogin(BaseModel):
 
 
 class UserRead(BaseModel):
+    id: int
     first_name: str
     last_name: str
-    # email: str
+    username: str
     # joined_at: datetime
