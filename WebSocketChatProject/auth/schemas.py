@@ -43,3 +43,7 @@ class UserRead(BaseModel):
     last_name: str
     username: str
     # joined_at: datetime
+
+
+class ForgetPasswordRequest(BaseModel):
+    email: str

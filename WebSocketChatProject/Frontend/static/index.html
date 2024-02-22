@@ -2,17 +2,23 @@
 <html lang="en">
 <head>
     <title>WebSocket Chat</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 </head>
 <body>
-    <div id="chat-container">
-        <div id="chat_messages"></div>
+    <div id="chat-container" class="container">
+        <div id="chat_messages"></div><br>
         <input id="messageInput" type="text" placeholder="Type your message..." />
         <input id="fileInput" type="file" />
         <button id="sendButton">Send</button>
     </div>
-
+    
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js" integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+" crossorigin="anonymous"></script>
     <script>
-        const socket = new WebSocket("ws://localhost:8000/ws");
+        let key = localStorage.getItem('key')
+        let receiver_id = localStorage.getItem('receiver_id')
+        let user_id = localStorage.getItem('user_id')
+        const socket = new WebSocket(`ws://10.10.4.202:8000/ws/${key}`);
         const chatMessages = document.getElementById("chat_messages");
         const messageInput = document.getElementById("messageInput");
         const fileInput = document.getElementById("fileInput");
@@ -28,10 +34,20 @@
                 message.toString().startsWith("data:image/tiff;base64,")
             ) {
                 imgData = `<img src=${message} style="max-width: 300px;width: 100px;"/>`
-                chatMessages.innerHTML += `<p>${imgData}</p>`;
+                if (user_id == receiver_id) {
+                    chatMessages.innerHTML += `<p style="text-align: left">${imgData}</p>`;
+                }
+                if (user_id != receiver_id) {
+                    chatMessages.innerHTML += `<p style="text-align: right">${imgData}</p>`;
+                }
             }
             else {
-                chatMessages.innerHTML += `<p>${message}</p>`;
+                if (user_id == receiver_id) {
+                    chatMessages.innerHTML += `<p style="text-align: left">${message}</p>`;
+                }
+                if (user_id != receiver_id) {
+                    chatMessages.innerHTML += `<p style="text-align: right">${message}</p>`;
+                }
             }
         };
 
@@ -43,16 +59,16 @@
                 reader.onload = (event) => {
                     const fileData = event.target.result;
                     socket.send(fileData);
-                    fetch('http://localhost:8000/send-message', {
+                    fetch('http://10.10.4.202:8000/send-message', {
                         method: 'POST',
                         headers: {
-                            Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzA1MDM1OTgwLCJ1c2VyX2lkIjoxLCJqdGkiOiJaLXNYcGd2QjNnd3lYUVdDRm81RmhvaTljYzdKVHctaThKUW5kNUlObFFNIn0.bPWrgXED2pLSIDPD7SsVf-KS-MGE12F3cIZ_ICGY9KI',
+                            Authorization: `Bearer ${token}`,
                             accept: 'application/json',
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             message: fileData,
-                            receiver: 1
+                            receiver: receiver_id
                         })
                     })
                         .then(response=>response.json())
@@ -63,16 +79,17 @@
             }
             if (message) {
                 socket.send(message);
-                fetch('http://localhost:8000/send-message', {
+                let token = localStorage.getItem('access')
+                fetch('http://10.10.4.202:8000/send-message', {
                     method: 'POST',
                     headers: {
-                        Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzA1MDM1OTgwLCJ1c2VyX2lkIjoxLCJqdGkiOiJaLXNYcGd2QjNnd3lYUVdDRm81RmhvaTljYzdKVHctaThKUW5kNUlObFFNIn0.bPWrgXED2pLSIDPD7SsVf-KS-MGE12F3cIZ_ICGY9KI',
+                        Authorization: `Bearer ${token}`,
                         accept: 'application/json',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         message: message,
-                        receiver: 1
+                        receiver: receiver_id
                     })
                 })
                     .then(response=>response.json())
@@ -80,6 +97,44 @@
                 messageInput.value = "";
             }
         });
+        window.onload = () => {
+            let token = localStorage.getItem('access')
+            fetch(`http://10.10.4.202:8000/messages?receiver_id=${receiver_id}`, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    accept: 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response=>response.json())
+            .then(res=>{
+                for (let msg of res) {
+                    if (msg.message.toString().startsWith("data:image/png;base64,") ||
+                        msg.message.toString().startsWith("data:image/jpeg;base64,") ||
+                        msg.message.toString().startsWith("data:image/jpg;base64,") ||
+                        msg.message.toString().startsWith("data:image/bmp;base64,") ||
+                        msg.message.toString().startsWith("data:image/gif;base64,") ||
+                        msg.message.toString().startsWith("data:image/tiff;base64,")
+                    ) {
+                        imgData = `<img src=${msg.message} style="max-width: 300px;width: 100px;"/>`
+                        if (user_id == msg.sender_id)
+                            chatMessages.innerHTML += `<p style="text-align: right">${imgData}</p>`;
+                        else {
+                            chatMessages.innerHTML += `<p>${imgData}</p>`;
+                        }
+                    }
+                    else {
+                        if (user_id == msg.sender_id) {
+                            chatMessages.innerHTML += `<p style="text-align: right">${msg.message}</p>`;
+                        }
+                        else {
+                            chatMessages.innerHTML += `<p>${msg.message}</p>`;
+                        }
+                    }
+                }
+            })
+        }
     </script>
 </body>
 </html>

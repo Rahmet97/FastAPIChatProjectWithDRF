@@ -2,7 +2,7 @@ import os
 import jwt
 import secrets
 from datetime import datetime, timedelta
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
 from fastapi import Depends, HTTPException
 from dotenv import load_dotenv
 
@@ -47,3 +47,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def create_reset_password_token(email: str):
+    data = {"sub": email, "exp": datetime.utcnow() + timedelta(minutes=10)}
+    token = jwt.encode(data, secret_key, algorithm)
+    return token

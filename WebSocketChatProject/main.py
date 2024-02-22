@@ -13,7 +13,7 @@ from sqlalchemy import insert, select
 
 from auth.schemas import UserRead
 from models.models import Message, UserData, Room
-from schemes import MessageScheme, RoomScheme
+from schemes import MessageScheme, RoomScheme, ReceiverScheme, MessageShowScheme
 from auth.utils import verify_token
 from database import get_async_session
 from auth.auth import register_router
@@ -41,9 +41,12 @@ class WebSocketManager:
             self.active_connections.append({"socket": websocket, "room": room})
 
     async def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        for connection in self.active_connections:
+            if connection['socket'] == websocket:
+                self.active_connections.remove(connection)
+                break
 
-    async def broadcast(self, message:str, websocket: WebSocket, room: str):
+    async def broadcast(self, message:str, room: str):
         for connection in self.active_connections:
             if connection['room'] == room:
                 await connection["socket"].send_text(message)
@@ -58,7 +61,7 @@ manager = WebSocketManager()
 
 @router.websocket('/ws/{room}')
 async def websocket_endpoint(websocket: WebSocket, room: str):
-    await manager.connect(websocket)
+    await manager.connect(websocket, room)
     try:
         while True:
             data = await websocket.receive_text()
@@ -110,27 +113,28 @@ async def user_list(
     query = select(UserData).where(UserData.id != token.get('user_id'))
     user__data = await session.execute(query)
     user_data = user__data.scalars().all()
-    print(user_data)
     return user_data
 
 
 @router.post('/room', response_model=RoomScheme)
 async def get_or_create_room(
-        receiver_id: int,
+        receiver: ReceiverScheme,
         token: dict = Depends(verify_token),
         session: AsyncSession = Depends(get_async_session)
 ):
+    if token is None:
+        raise HTTPException(status_code=403, detail='Forbidden')
     sender_id = token.get('user_id')
     room_data = {
         "sender_id": sender_id,
-        "receiver_id": receiver_id
+        "receiver_id": receiver.receiver_id
     }
     dump_data = json.dumps(room_data)
     hash_object = hashlib.sha256(dump_data.encode())
     unique_code = hash_object.hexdigest()
     query_get = select(Room).where(
-        ((Room.sender_id == sender_id) & (Room.receiver_id == receiver_id)) |
-        ((Room.sender_id == receiver_id) & (Room.receiver_id == sender_id))
+        ((Room.sender_id == sender_id) & (Room.receiver_id == receiver.receiver_id)) |
+        ((Room.sender_id == receiver.receiver_id) & (Room.receiver_id == sender_id))
     )
     room__data = await session.execute(query_get)
     try:
@@ -139,7 +143,7 @@ async def get_or_create_room(
         query = insert(Room).values(
             key=unique_code,
             sender_id=sender_id,
-            receiver_id=receiver_id
+            receiver_id=receiver.receiver_id
         )
         await session.execute(query)
         await session.commit()
@@ -147,8 +151,37 @@ async def get_or_create_room(
         result_query = select(Room).where(Room.key==unique_code)
         result_data = await session.execute(result_query)
         result = result_data.scalars().one()
-
+    print(result)
     return result
+
+
+@router.get('/messages', response_model=List[MessageShowScheme])
+async def get_chat_messages(
+        receiver_id: int,
+        token: dict = Depends(verify_token),
+        session: AsyncSession = Depends(get_async_session)
+):
+    if token is None:
+        raise HTTPException(status_code=403, detail='Forbidden')
+    sender_id = token.get('user_id')
+    query = select(Message).where(
+        (Message.sender_id == sender_id) & (Message.receiver_id == receiver_id) |
+        (Message.sender_id == receiver_id) & (Message.receiver_id == sender_id)
+    )
+    message_data = await session.execute(query)
+    result = message_data.scalars().all()
+    return result
+
+
+@router.get('/rooms')
+async def get_my_chats(
+        token: dict = Depends(verify_token),
+        session: AsyncSession = Depends(get_async_session)
+):
+    if token is None:
+        raise HTTPException(status_code=403, detail='Forbidden')
+    user_id = token.get('user_id')
+    query = select(Room).where((Room.sender_id == user_id) | (Room.receiver_id == user_id))
 
 
 app.include_router(register_router)

@@ -15,7 +15,7 @@
     <script>
         window.onload = () => {
             let access = localStorage.getItem('access')
-            fetch('http://localhost:8000/users', {
+            fetch('http://10.10.4.202:8000/users', {
                 method: 'GET',
                 headers: {
                     Authorization: `Bearer ${access}`,
@@ -32,7 +32,7 @@
                         let receiver_id = user.id
                         let liData = `
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span onclick="go_user_chat(${receiver_id})">${first_name} ${last_name}</span>
+                                <span onclick="go_user_chat(${receiver_id})" style="cursor: pointer;">${first_name} ${last_name}</span>
                             </li>
                         `
                         document.getElementsByClassName('list-group')[0].innerHTML += liData
@@ -40,7 +40,24 @@
                 })
         }
         const go_user_chat = (receiver_id) => {
-            
+            let token = localStorage.getItem('access')
+            fetch('http://10.10.4.202:8000/room', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    accept: 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    receiver_id: receiver_id
+                })
+            })
+            .then(response=>response.json())
+            .then(res=>{
+                localStorage.setItem('key', res.key)
+                localStorage.setItem('receiver_id', receiver_id)
+                window.location.href = '/index.html'
+            })
         }
     </script>
 </body>

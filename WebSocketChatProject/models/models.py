@@ -10,6 +10,7 @@ class UserData(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     first_name = Column(String)
     last_name = Column(String)
+    email = Column(String)
     username = Column(String)
     password = Column(String)
 
